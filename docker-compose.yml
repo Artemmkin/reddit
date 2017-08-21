@@ -1,0 +1,14 @@
+version: '3'
+services:
+  db:
+    image: mongo:latest
+  web:
+    build: .
+    environment:
+      - DATABASE_URL=db
+    volumes:
+      - .:/app
+    ports:
+      - "4567:4567"
+    depends_on:
+      - db
