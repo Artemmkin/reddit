@@ -10,4 +10,4 @@ ADD Gemfile* $APP_HOME/
 RUN bundle install
 
 ADD . $APP_HOME
-ENTRYPOINT ["ruby", "ui_app.rb"]
+CMD ["puma"]

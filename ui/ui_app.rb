@@ -64,7 +64,7 @@ post '/new/?' do
 end
 
 
-get '/:id/?' do
+get '/post/:id' do
   @post = JSON.parse(RestClient::Request.execute(method: :get, url: "http://#{post_service_host}:#{post_service_port}/post/#{params[:id]}", timeout: 3))
   @comments = JSON.parse(RestClient::Request.execute(method: :get, url: "http://#{comment_service_host}:#{comment_service_port}/#{params[:id]}/comments", timeout: 3))
   @flashes = session[:flashes]
@@ -73,7 +73,7 @@ get '/:id/?' do
 end
 
 
-post '/:id/comment/?' do
+post '/post/:id/comment' do
   begin
     RestClient.post(
                      "http://#{comment_service_host}:#{comment_service_port}/add_comment",

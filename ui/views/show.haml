@@ -25,7 +25,7 @@
             %span{class: "text-muted pull-right"}
               %em #{Time.at(comment['created_at'].to_i).strftime('%H:%M')} #{Time.at(comment['created_at'].to_i).strftime('%d-%m-%Y')}
           .panel-body #{comment['body']}
-%form{action: "/#{@post['_id']['$oid']}/comment", method: 'post', role: 'form'}
+%form{action: "/post/#{@post['_id']['$oid']}/comment", method: 'post', role: 'form'}
   .col-sm-4
     .form-group
       %input{name: 'name', type: 'text', class: 'form-control', placeholder: 'name'}

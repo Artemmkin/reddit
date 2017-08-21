@@ -11,4 +11,4 @@ RUN bundle install
 
 ADD . $APP_HOME
 
-ENTRYPOINT ["ruby", "comment_app.rb"]
+CMD ["puma"]
