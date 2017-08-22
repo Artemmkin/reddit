@@ -4,6 +4,7 @@ require 'json/ext' # for .to_json
 require 'haml'
 require 'uri'
 require 'mongo'
+require 'bcrypt'
 require './helpers'
 
 
@@ -11,6 +12,7 @@ configure do
     db = Mongo::Client.new([ ENV['DATABASE_URL'] || '127.0.0.1:27017' ], database: 'user_posts', heartbeat_frequency: 2)
     set :mongo_db, db[:posts]
     set :comments_db, db[:comments]
+    set :users_db, db[:users]
     set :bind, '0.0.0.0'
     enable :sessions
 end
@@ -18,6 +20,7 @@ end
 before do
   session[:flashes] = [] if session[:flashes].class != Array
 end
+
 
 get '/' do
   @title = 'All posts'
@@ -33,10 +36,10 @@ end
 
 
 get '/new' do
-    @title = 'New posts'
-    @flashes = session[:flashes]
-    session[:flashes] = nil
-    haml :create
+  @title = 'New post'
+  @flashes = session[:flashes]
+  session[:flashes] = nil
+  haml :create
 end
 
 post '/new/?' do
@@ -58,6 +61,55 @@ post '/new/?' do
 end
 
 
+get '/signup' do
+  haml :signup
+end
+
+
+get "/login" do
+  @flashes = session[:flashes]
+  session[:flashes] = nil
+  haml :login
+end
+
+
+post "/signup" do
+  db = settings.users_db
+  password_salt = BCrypt::Engine.generate_salt
+  password_hash = BCrypt::Engine.hash_secret(params[:password], password_salt)
+
+  result = db.insert_one _id: params[:username], salt: password_salt, passwordhash: password_hash
+
+  session[:username] = params[:username]
+  redirect "/"
+end
+
+
+post "/login" do
+  db = settings.users_db
+  u = db.find(_id: params[:username]).to_a.first.to_json
+  if u != "null"
+    user = JSON.parse(u)
+    if user["passwordhash"] == BCrypt::Engine.hash_secret(params[:password], user["salt"])
+      session[:username] = params[:username]
+      redirect "/"
+    else
+      session[:flashes] << { type: 'alert-danger', message: 'Wrong username or password' }
+      redirect back
+    end
+  else
+    session[:flashes] << { type: 'alert-danger', message: 'Wrong username or password' }
+    redirect back
+  end
+end
+
+
+get "/logout" do
+    session[:username] = nil
+    redirect back
+end
+
+
 get '/:id/?' do
   @post = JSON.parse(document_by_id(params[:id]))
   id   = object_id(params[:id])
@@ -66,6 +118,7 @@ get '/:id/?' do
   session[:flashes] = nil
   haml :show
 end
+
 
 post '/:id/comment/?' do
   content_type :json

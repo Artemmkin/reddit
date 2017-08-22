@@ -11,12 +11,22 @@
   %body
     .navbar.navbar-default.navbar-static-top
       .container
-        %button.navbar-toggle(type="button" data-toggle="collapse" data-target=".navbar-responsive-collapse")
-          %span.icon-bar
-          %span.icon-bar
-          %span.icon-bar
-        %a.navbar-brand(href="/") Monolith Reddit
-        .navbar-collapse.collapse.navbar-responsive-collapse
+        .navbar-header
+          %button.navbar-toggle(type="button" data-toggle="collapse" data-target=".navbar-responsive-collapse")
+            %span.icon-bar
+            %span.icon-bar
+            %span.icon-bar
+          %a.navbar-brand(href="/") Monolith Reddit
+        .navbar-collapse.collapse
+          %ul.nav.navbar-nav.navbar-right
+            - if logged_in?
+              %li
+                %a.nav-link(href="/logout") Logout
+            - else
+              %li
+                %a(href="/signup") Sign up
+              %li
+                %a(href="/login") Login
     .container
       .row
         .col-lg-9

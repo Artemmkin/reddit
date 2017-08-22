@@ -1,0 +1,45 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    backports (3.8.0)
+    bcrypt (3.1.11)
+    bson (4.2.2)
+    bson_ext (1.5.1)
+    haml (5.0.2)
+      temple (>= 0.8.0)
+      tilt
+    mongo (2.4.3)
+      bson (>= 4.2.1, < 5.0.0)
+    multi_json (1.12.1)
+    mustermann (1.0.0)
+    rack (2.0.3)
+    rack-protection (2.0.0)
+      rack
+    sinatra (2.0.0)
+      mustermann (~> 1.0)
+      rack (~> 2.0)
+      rack-protection (= 2.0.0)
+      tilt (~> 2.0)
+    sinatra-contrib (2.0.0)
+      backports (>= 2.0)
+      multi_json
+      mustermann (~> 1.0)
+      rack-protection (= 2.0.0)
+      sinatra (= 2.0.0)
+      tilt (>= 1.3, < 3)
+    temple (0.8.0)
+    tilt (2.0.8)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  bcrypt
+  bson_ext
+  haml
+  mongo
+  sinatra
+  sinatra-contrib
+
+BUNDLED WITH
+   1.14.6

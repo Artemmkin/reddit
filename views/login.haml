@@ -1,0 +1,10 @@
+%h2 Log In
+%form{ action: '/login', method: 'post', role: 'form'}
+  .form-group
+    %label{for: 'username'} Username:
+    %input{name:'username', placeholder: 'Your username', class: 'form-control', id: 'username'}
+  .form-group
+    %label{for: 'password'} Password:
+    %input{name:'password', placeholder: 'Your password', class: 'form-control', id: 'password'}
+  .form-group
+    %input{class: 'btn btn-primary', type: 'submit', value:'Log in'}

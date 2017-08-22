@@ -26,15 +26,18 @@
             %span{class: "text-muted pull-right"}
               %em #{Time.at(comment['created_at'].to_i).strftime('%H:%M')} #{Time.at(comment['created_at'].to_i).strftime('%d-%m-%Y')}
           .panel-body #{comment['body']}
-          
-%form{action: "/#{@post['_id']['$oid']}/comment", method: 'post', role: 'form'}
-  .col-sm-4
-    .form-group
-      %input{name: 'name', type: 'text', class: 'form-control', placeholder: 'name'}
-  .col-sm-4
-    .form-group
-      %input{name: 'email', type: 'email', class: 'form-control', placeholder: 'email'}
-  .col-sm-8
-    .form-group
-      %textarea{name: 'body', class: 'form-control', placeholder: 'put a nice comment :)'}
-    %button{class: 'btn btn-block btn-primary'} Post my comment
+- if logged_in?
+  %form{action: "/#{@post['_id']['$oid']}/comment", method: 'post', role: 'form'}
+    .col-sm-4
+      .form-group
+        %input{name: 'name', type: 'text', class: 'form-control', placeholder: 'name'}
+    .col-sm-4
+      .form-group
+        %input{name: 'email', type: 'email', class: 'form-control', placeholder: 'email'}
+    .col-sm-8
+      .form-group
+        %textarea{name: 'body', class: 'form-control', placeholder: 'put a nice comment :)'}
+      %button{class: 'btn btn-block btn-primary'} Post my comment
+- else
+  .alert{class: "alert-info"}
+    %strong Log in or sign up to add a new comment! :)
