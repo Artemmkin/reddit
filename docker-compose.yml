@@ -9,6 +9,6 @@ services:
     volumes:
       - .:/app
     ports:
-      - "4567:4567"
+      - "9292:9292"
     depends_on:
       - db

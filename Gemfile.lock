@@ -12,6 +12,7 @@ GEM
       bson (>= 4.2.1, < 5.0.0)
     multi_json (1.12.1)
     mustermann (1.0.0)
+    puma (3.10.0)
     rack (2.0.3)
     rack-protection (2.0.0)
       rack
@@ -38,6 +39,7 @@ DEPENDENCIES
   bson_ext
   haml
   mongo
+  puma
   sinatra
   sinatra-contrib
 
