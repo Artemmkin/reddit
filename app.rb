@@ -140,7 +140,7 @@ post '/post/:id/comment/?' do
   content_type :json
   db = settings.comments_db
   begin
-    result = db.insert_one post_id: params[:id], name: params['name'], email: params['email'], body: params['body'], created_at: Time.now.to_i
+    result = db.insert_one post_id: params[:id], name: session[:username], body: params['body'], created_at: Time.now.to_i
     db.find(_id: result.inserted_id).to_a.first.to_json
   rescue
     session[:flashes] << { type: 'alert-danger', message: 'Can\'t save your comment, some problems with the comment service' }
