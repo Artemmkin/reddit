@@ -110,7 +110,7 @@ get "/logout" do
 end
 
 
-put '/:id/vote/:type' do
+put '/post/:id/vote/:type' do
   if logged_in?
     id   = object_id(params[:id])
     post = JSON.parse(document_by_id(params[:id]))
@@ -126,7 +126,7 @@ put '/:id/vote/:type' do
 end
 
 
-get '/:id/?' do
+get '/post/:id/?' do
   @post = JSON.parse(document_by_id(params[:id]))
   id   = object_id(params[:id])
   @comments = JSON.parse(settings.comments_db.find(post_id: "#{id}").to_a.to_json)
@@ -136,7 +136,7 @@ get '/:id/?' do
 end
 
 
-post '/:id/comment/?' do
+post '/post/:id/comment/?' do
   content_type :json
   db = settings.comments_db
   begin
