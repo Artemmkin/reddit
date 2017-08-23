@@ -110,6 +110,22 @@ get "/logout" do
 end
 
 
+put '/:id/vote/:type' do
+  if logged_in?
+    id   = object_id(params[:id])
+    post = JSON.parse(document_by_id(params[:id]))
+    post['votes'] += params[:type].to_i
+
+    settings.mongo_db.find(:_id => id).
+      find_one_and_update('$set' => {:votes => post['votes']})
+    document_by_id(id)
+  else
+    session[:flashes] << { type: 'alert-danger', message: 'You need to log in before you can vote' }
+  end
+  redirect back
+end
+
+
 get '/:id/?' do
   @post = JSON.parse(document_by_id(params[:id]))
   id   = object_id(params[:id])

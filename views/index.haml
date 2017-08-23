@@ -5,10 +5,18 @@
         %div{class: 'panel-heading'}
           %div{class: 'text-center'}
             %div{class: 'row'}
+              .col-sm-1
+                %form{:action => "#{post['_id']['$oid']}/vote/1", :method => "post", id: "form-upvote" }
+                  %input{:type => "hidden", :name => "_method", :value => "put"}
+                  %input{:type => "submit", :value => "⬆", class: 'pull-center', id: 'upvote'}
+                %h4{class: 'pull-center'} #{post['votes']}
+                %form{:action => "#{post['_id']['$oid']}/vote/-1", :method => "post", id: "form-downvote"}
+                  %input{:type => "hidden", :name => "_method", :value=> "put"}
+                  %input{:type => "submit", :value => "⬇", class: 'pull-center', id: 'downvote'}
               .col-sm-8
                 %h3{class: 'pull-left'}
                   %a{href: "#{post['_id']['$oid']}"} #{post['title']}
-              .col-sm-4
+              .col-sm-3
                 %h4{class: 'pull-right'}
                   %small
                     %em #{Time.at(post['created_at'].to_i).strftime('%d-%m-%Y')}
