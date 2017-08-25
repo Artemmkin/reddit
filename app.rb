@@ -63,6 +63,8 @@ end
 
 get '/signup' do
   @title = 'Signup'
+  @flashes = session[:flashes]
+  session[:flashes] = nil
   haml :signup
 end
 
@@ -79,11 +81,16 @@ post '/signup' do
   db = settings.users_db
   password_salt = BCrypt::Engine.generate_salt
   password_hash = BCrypt::Engine.hash_secret(params[:password], password_salt)
-
-  result = db.insert_one _id: params[:username], salt: password_salt, passwordhash: password_hash
-
-  session[:username] = params[:username]
-  redirect '/'
+  u = db.find(_id: params[:username]).to_a.first.to_json
+  if u == "null"
+    result = db.insert_one _id: params[:username], salt: password_salt, passwordhash: password_hash
+    session[:username] = params[:username]
+    session[:flashes] << { type: 'alert-success', message: 'User created' }
+    redirect '/'
+  else
+    session[:flashes] << { type: 'alert-danger', message: 'User already exists' }
+    redirect back
+  end
 end
 
 
@@ -107,8 +114,8 @@ end
 
 
 get '/logout' do
-    session[:username] = nil
-    redirect back
+  session[:username] = nil
+  redirect back
 end
 
 
