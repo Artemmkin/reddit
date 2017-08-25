@@ -62,11 +62,13 @@ end
 
 
 get '/signup' do
+  @title = 'Signup'
   haml :signup
 end
 
 
 get '/login' do
+  @title = 'Login'
   @flashes = session[:flashes]
   session[:flashes] = nil
   haml :login
@@ -127,6 +129,7 @@ end
 
 
 get '/post/:id' do
+  @title = 'Post'
   @post = JSON.parse(document_by_id(params[:id]))
   id   = object_id(params[:id])
   @comments = JSON.parse(settings.comments_db.find(post_id: "#{id}").to_a.to_json)
