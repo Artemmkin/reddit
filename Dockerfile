@@ -1,7 +1,6 @@
-FROM ruby:2.3.3
+FROM ruby:2.3-alpine
 
-RUN apt-get update -qq && apt-get install -y build-essential
-
+RUN apk add --no-cache build-base
 ENV APP_HOME /app
 RUN mkdir $APP_HOME
 WORKDIR $APP_HOME
