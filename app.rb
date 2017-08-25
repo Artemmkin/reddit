@@ -42,7 +42,7 @@ get '/new' do
   haml :create
 end
 
-post '/new/?' do
+post '/new' do
   db = settings.mongo_db
   if params['link'] =~ URI::regexp
     begin
@@ -66,14 +66,14 @@ get '/signup' do
 end
 
 
-get "/login" do
+get '/login' do
   @flashes = session[:flashes]
   session[:flashes] = nil
   haml :login
 end
 
 
-post "/signup" do
+post '/signup' do
   db = settings.users_db
   password_salt = BCrypt::Engine.generate_salt
   password_hash = BCrypt::Engine.hash_secret(params[:password], password_salt)
@@ -81,18 +81,18 @@ post "/signup" do
   result = db.insert_one _id: params[:username], salt: password_salt, passwordhash: password_hash
 
   session[:username] = params[:username]
-  redirect "/"
+  redirect '/'
 end
 
 
-post "/login" do
+post '/login' do
   db = settings.users_db
   u = db.find(_id: params[:username]).to_a.first.to_json
   if u != "null"
     user = JSON.parse(u)
     if user["passwordhash"] == BCrypt::Engine.hash_secret(params[:password], user["salt"])
       session[:username] = params[:username]
-      redirect "/"
+      redirect '/'
     else
       session[:flashes] << { type: 'alert-danger', message: 'Wrong username or password' }
       redirect back
@@ -104,7 +104,7 @@ post "/login" do
 end
 
 
-get "/logout" do
+get '/logout' do
     session[:username] = nil
     redirect back
 end
@@ -126,7 +126,7 @@ put '/post/:id/vote/:type' do
 end
 
 
-get '/post/:id/?' do
+get '/post/:id' do
   @post = JSON.parse(document_by_id(params[:id]))
   id   = object_id(params[:id])
   @comments = JSON.parse(settings.comments_db.find(post_id: "#{id}").to_a.to_json)
@@ -136,7 +136,7 @@ get '/post/:id/?' do
 end
 
 
-post '/post/:id/comment/?' do
+post '/post/:id/comment' do
   content_type :json
   db = settings.comments_db
   begin
