@@ -1,5 +1,5 @@
 # Monolith application
----
+
 ## Deploy using Capistrano
 
 #### Requirements for the target host:
@@ -10,7 +10,8 @@
 #### Steps:
 1. Install required gems:
 `bundle install`
-2. ```bash
+2. Set env vars:
+```bash
 export SERVER_IP=<ip_address>  # public IP address of the target host
 export REPO_NAME=<account/name> # repo name to fetch the code from, e.g. Artemmkin/reddit
 ```
@@ -18,4 +19,3 @@ export REPO_NAME=<account/name> # repo name to fetch the code from, e.g. Artemmk
 ```bash
 bundle exec cap production deploy:initial
 ```
----
