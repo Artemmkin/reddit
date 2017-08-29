@@ -1,5 +1,4 @@
 require 'sinatra'
-require 'sinatra/reloader'
 require 'json/ext' # for .to_json
 require 'haml'
 require 'uri'
