@@ -1,13 +1,13 @@
 server ENV['SERVER_IP'], port: 22, user: 'deploy', roles: [:web, :app, :db], primary: true
+set :repo_name, ENV['REPO_NAME']
 
 set :application, 'reddit'
-set :repo_url, 'git@github.com:Artemmkin/reddit.git'
+set :repo_url, "git@github.com:#{fetch(:repo_name)}.git"
 set :branch, 'monolith'
 set :user, 'deploy'
 set :puma_threads,    [4, 16]
 set :puma_workers,    0
 
-set :rbenv_ruby,      '2.2.3'
 set :pty,             true
 set :use_sudo,        false
 set :stage,           :production
