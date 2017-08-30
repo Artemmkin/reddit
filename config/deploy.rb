@@ -1,10 +1,10 @@
-server ENV['SERVER_IP'], port: 22, user: 'deploy', roles: [:web, :app, :db], primary: true
+server ENV['SERVER_IP'], port: 22, user: ENV['DEPLOY_USER'], roles: [:web, :app, :db], primary: true
 set :repo_name, ENV['REPO_NAME']
 
 set :application, 'reddit'
 set :repo_url, "git@github.com:#{fetch(:repo_name)}.git"
 set :branch, 'monolith'
-set :user, 'deploy'
+set :user, ENV['DEPLOY_USER']
 set :puma_threads,    [4, 16]
 set :puma_workers,    0
 
