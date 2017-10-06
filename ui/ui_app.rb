@@ -64,6 +64,20 @@ post '/new/?' do
 end
 
 
+post '/post/:id/vote/:type' do
+  begin
+    RestClient.post(
+                    "http://#{post_service_host}:#{post_service_port}/vote",
+                     id: params[:id],
+                     type: params[:type]
+                   )
+  rescue
+    session[:flashes] << { type: 'alert-danger', message: 'Can\'t vote, some problems with the post service' }
+  end
+    redirect back
+end
+
+
 get '/post/:id' do
   @post = JSON.parse(RestClient::Request.execute(method: :get, url: "http://#{post_service_host}:#{post_service_port}/post/#{params[:id]}", timeout: 3))
   @comments = JSON.parse(RestClient::Request.execute(method: :get, url: "http://#{comment_service_host}:#{comment_service_port}/#{params[:id]}/comments", timeout: 3))
