@@ -1,35 +1,82 @@
-def healthcheck(post_host, post_port, comment_host, comment_port)
-  begin
-    post_service = JSON.parse(RestClient::Request.execute(method: :get, url: "http://#{post_host}:#{post_port}/healthcheck", timeout: 2))
-  rescue
-    post_status = 0
-  else
-    post_status = post_service['status']
+def flash_danger(message)
+  session[:flashes] << { type: 'alert-danger', message: message }
+end
+
+def flash_success(message)
+  session[:flashes] << { type: 'alert-success', message: message }
+end
+
+def log_event(type, name, message, params = '{}')
+  case type
+  when 'error'
+    logger.error('service=ui | ' \
+                 "event=#{name} | " \
+                 "request_id=#{request.env['REQUEST_ID']} | " \
+                 "message=\'#{message}\' | " \
+                 "params: #{params.to_json}")
+  when 'info'
+    logger.info('service=ui | ' \
+                "event=#{name} | " \
+                "request_id=#{request.env['REQUEST_ID']} | " \
+                "message=\'#{message}\' | " \
+                "params: #{params.to_json}")
+  when 'warning'
+    logger.warn('service=ui | ' \
+                "event=#{name} | " \
+                "request_id=#{request.env['REQUEST_ID']} | " \
+                "message=\'#{message}\' |  " \
+                "params: #{params.to_json}")
+  end
+end
+
+def http_request(method, url, params = {})
+  unless defined?(request).nil?
+    settings.http_client.headers[:request_id] = request.env['REQUEST_ID'].to_s
   end
 
-  begin
-    comment_service = JSON.parse(RestClient::Request.execute(method: :get, url: "http://#{comment_host}:#{comment_port}/healthcheck", timeout: 2))
-  rescue
-    comment_status = 0
-  else
-    comment_status = comment_service['status']
+  case method
+  when 'get'
+    response = settings.http_client.get url
+    JSON.parse(response.body)
+  when 'post'
+    settings.http_client.post url, params
   end
+end
 
-  if comment_status == 1 && post_status == 1
-    status = 1
-  else
-    status = 0
-  end
+def http_healthcheck_handler(post_url, comment_url, version)
+  post_status = check_service_health(post_url)
+  comment_status = check_service_health(comment_url)
 
-  version = File.read('VERSION')
+  status = if comment_status == 1 && post_status == 1
+             1
+           else
+             0
+           end
 
-  healthcheck= {
-    status: status,
-    dependent_services: {
-      comment: comment_status,
-      post:    post_status
-    },
-    version: version.strip
-  }
+  healthcheck = { status: status,
+                  dependent_services: {
+                    comment: comment_status,
+                    post:    post_status
+                  },
+                  version: version }
   healthcheck.to_json
+end
+
+def check_service_health(url)
+  name = http_request('get', "#{url}/healthcheck")
+rescue StandardError
+  0
+else
+  name['status']
+end
+
+def set_health_gauge(metric, value)
+  metric.set(
+    {
+      version: VERSION,
+      commit_hash: BUILD_INFO[0].strip,
+      branch: BUILD_INFO[1].strip
+    },
+    value
+  )
 end

@@ -1,4 +1,3 @@
-
 def obj_id(val)
   begin
     BSON::ObjectId.from_string(val)
@@ -12,26 +11,24 @@ def document_by_id(id)
   if id.nil?
     {}.to_json
   else
-    document = settings.mongo_db.find(:_id => id).to_a.first
+    document = settings.mongo_db.find(_id: id).to_a.first
     (document || {}).to_json
   end
 end
 
-def healthcheck(mongo_host, mongo_port)
+def healthcheck_handler(db_url, version)
   begin
-    commentdb_test = Mongo::Client.new(["#{mongo_host}:#{mongo_port}"], server_selection_timeout: 2)
+    commentdb_test = Mongo::Client.new(db_url,
+                                       server_selection_timeout: 2)
     commentdb_test.database_names
     commentdb_test.close
-  rescue
+  rescue StandardError
     commentdb_status = 0
   else
     commentdb_status = 1
   end
 
   status = commentdb_status
-
-  version = File.read('VERSION')
-
   healthcheck = {
     status: status,
     dependent_services: {
@@ -41,4 +38,38 @@ def healthcheck(mongo_host, mongo_port)
   }
 
   healthcheck.to_json
+end
+
+def set_health_gauge(metric, value)
+  metric.set(
+    {
+      version: VERSION,
+      commit_hash: BUILD_INFO[0].strip,
+      branch: BUILD_INFO[1].strip
+    },
+    value
+  )
+end
+
+def log_event(type, name, message, params = '{}')
+  case type
+  when 'error'
+    logger.error('service=comment | ' \
+                 "event=#{name} | " \
+                 "request_id=#{request.env['HTTP_REQUEST_ID']}\n" \
+                 "message=\'#{message}\'\n" \
+                 "params: #{params.to_json}")
+  when 'info'
+    logger.info('service=comment | ' \
+                 "event=#{name} | " \
+                 "request_id=#{request.env['HTTP_REQUEST_ID']}\n" \
+                 "message=\'#{message}\'\n" \
+                 "params: #{params.to_json}")
+  when 'warning'
+    logger.warn('service=comment | ' \
+                 "event=#{name} | " \
+                 "request_id=#{request.env['HTTP_REQUEST_ID']}\n" \
+                 "message=\'#{message}\'\n" \
+                 "params: #{params.to_json}")
+  end
 end

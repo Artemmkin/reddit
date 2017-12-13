@@ -1,3 +1,6 @@
 prometheus_client==0.0.21
 flask==0.12.2
 pymongo==3.5.1
+structlog==17.2.0
+py-zipkin==0.7.0
+requests==2.18.4

@@ -1,139 +1,205 @@
 require 'sinatra'
 require 'sinatra/reloader'
-require 'json/ext' # for .to_json
+require 'json/ext'
 require 'haml'
 require 'uri'
-require 'rest-client'
 require 'prometheus/client'
-require './helpers'
 require 'rufus-scheduler'
+require 'logger'
+require 'faraday'
+require 'zipkin-tracer'
+require_relative 'helpers'
 
+# Dependent services
+POST_SERVICE_HOST ||= ENV['POST_SERVICE_HOST'] || '127.0.0.1'
+POST_SERVICE_PORT ||= ENV['POST_SERVICE_PORT'] || '4567'
+COMMENT_SERVICE_HOST ||= ENV['COMMENT_SERVICE_HOST'] || '127.0.0.1'
+COMMENT_SERVICE_PORT ||= ENV['COMMENT_SERVICE_PORT'] || '4567'
+POST_URL ||= "http://#{POST_SERVICE_HOST}:#{POST_SERVICE_PORT}"
+COMMENT_URL ||= "http://#{COMMENT_SERVICE_HOST}:#{COMMENT_SERVICE_PORT}"
 
-post_service_host = ENV['POST_SERVICE_HOST'] || '127.0.0.1'
-post_service_port = ENV['POST_SERVICE_PORT'] || '4567'
-comment_service_host = ENV['COMMENT_SERVICE_HOST'] || '127.0.0.1'
-comment_service_port = ENV['COMMENT_SERVICE_PORT'] || '4567'
+# App version and build info
+VERSION ||= File.read('VERSION').strip
+BUILD_INFO = File.readlines('build_info.txt')
+@@host_info=ENV['HOSTNAME']
+@@env_info=ENV['ENV']
 
-## Create and register metrics
+configure do
+  http_client = Faraday.new do |faraday|
+    faraday.use ZipkinTracer::FaradayHandler
+    faraday.request :url_encoded # form-encode POST params
+    # faraday.response :logger
+    faraday.adapter Faraday.default_adapter # make requests with Net::HTTP
+  end
+  set :http_client, http_client
+  set :bind, '0.0.0.0'
+  set :server, :puma
+  set :logging, false
+  set :mylogger, Logger.new(STDOUT)
+  enable :sessions
+end
+
+# create and register metrics
 prometheus = Prometheus::Client.registry
-
-ui_health_gauge = Prometheus::Client::Gauge.new(:ui_health, 'Health status of UI service')
-ui_health_post_gauge = Prometheus::Client::Gauge.new(:ui_health_post_availability, 'Check if Post service is available to UI')
-ui_health_comment_gauge = Prometheus::Client::Gauge.new(:ui_health_comment_availability, 'Check if Comment service is available to UI')
+ui_health_gauge = Prometheus::Client::Gauge.new(
+  :ui_health,
+  'Health status of UI service'
+)
+ui_health_post_gauge = Prometheus::Client::Gauge.new(
+  :ui_health_post_availability,
+  'Check if Post service is available to UI'
+)
+ui_health_comment_gauge = Prometheus::Client::Gauge.new(
+  :ui_health_comment_availability,
+  'Check if Comment service is available to UI'
+)
 prometheus.register(ui_health_gauge)
 prometheus.register(ui_health_post_gauge)
 prometheus.register(ui_health_comment_gauge)
 
-## Schedule healthcheck function
-build_info=File.readlines('build_info.txt')
-@@host_info=ENV['HOSTNAME']
-@@env_info=ENV['ENV']
-
+# Schedule health check function
 scheduler = Rufus::Scheduler.new
-
-scheduler.every '3s' do
-  check = JSON.parse(healthcheck(post_service_host, post_service_port, comment_service_host, comment_service_port))
-  ui_health_gauge.set({ version: check['version'], commit_hash: build_info[0].strip, branch: build_info[1].strip }, check['status'])
-  ui_health_post_gauge.set({ version: check['version'], commit_hash: build_info[0].strip, branch: build_info[1].strip }, check['dependent_services']['post'])
-  ui_health_comment_gauge.set({ version: check['version'], commit_hash: build_info[0].strip, branch: build_info[1].strip }, check['dependent_services']['comment'])
+scheduler.every '5s' do
+  check = JSON.parse(http_healthcheck_handler(POST_URL, COMMENT_URL, VERSION))
+  set_health_gauge(ui_health_gauge, check['status'])
+  set_health_gauge(ui_health_post_gauge, check['dependent_services']['post'])
+  set_health_gauge(ui_health_comment_gauge, check['dependent_services']['comment'])
 end
 
-
-configure do
-  enable :sessions
-  set :bind, '0.0.0.0'
-end
-
+# before each request
 before do
   session[:flashes] = [] if session[:flashes].class != Array
+  env['rack.logger'] = settings.mylogger # set custom logger
 end
 
+# after each request
+after do
+  request_id = env['REQUEST_ID'] || 'null'
+  logger.info("service=ui | event=request | path=#{env['REQUEST_PATH']} | " \
+              "request_id=#{request_id} | " \
+              "remote_addr=#{env['REMOTE_ADDR']} | " \
+              "method= #{env['REQUEST_METHOD']} | " \
+              "response_status=#{response.status}")
+end
 
+# show all posts
 get '/' do
   @title = 'All posts'
   begin
-    @posts = JSON.parse(RestClient::Request.execute(method: :get, url: "http://#{post_service_host}:#{post_service_port}/posts", timeout: 1))
-  rescue
-    session[:flashes] << { type: 'alert-danger', message: 'Can\'t show blog posts, some problems with the post service. <a href="." class="alert-link">Refresh?</a>' }
+    @posts = http_request('get', "#{POST_URL}/posts")
+  rescue StandardError => e
+    flash_danger('Can\'t show blog posts, some problems with the post ' \
+                 'service. <a href="." class="alert-link">Refresh?</a>')
+    log_event('error', 'show_all_posts',
+              "Failed to read from Post service. Reason: #{e.message}")
+  else
+    log_event('info', 'show_all_posts',
+              'Successfully showed the home page with posts')
   end
   @flashes = session[:flashes]
   session[:flashes] = nil
   haml :index
 end
 
-
+# show a form for creating a new post
 get '/new' do
-    @title = 'New post'
-    @flashes = session[:flashes]
-    session[:flashes] = nil
-    haml :create
+  @title = 'New post'
+  @flashes = session[:flashes]
+  session[:flashes] = nil
+  haml :create
 end
 
-
+# talk to Post service in order to creat a new post
 post '/new/?' do
-  if params['link'] =~ URI::regexp
+  if params['link'] =~ URI::DEFAULT_PARSER.regexp[:ABS_URI]
     begin
-      RestClient.post(
-                       "http://#{post_service_host}:#{post_service_port}/add_post",
-                       title: params['title'],
-                       link: params['link'],
-                       created_at: Time.now.to_i
-                     )
-    rescue
-      session[:flashes] << { type: 'alert-danger', message: 'Can\'t save your post, some problems with the post service' }
+      http_request('post', "#{POST_URL}/add_post", title: params['title'],
+                                                   link: params['link'],
+                                                   created_at: Time.now.to_i)
+    rescue StandardError => e
+      flash_danger("Can't save your post, some problems with the post service")
+      log_event('error', 'post_create',
+                "Failed to create a post. Reason: #{e.message}", params)
     else
-      session[:flashes] << { type: 'alert-success', message: 'Post successuly published' }
+      flash_success('Post successuly published')
+      log_event('info', 'post_create', 'Successfully created a post', params)
     end
-      redirect '/'
+    redirect '/'
   else
-    session[:flashes] << { type: 'alert-danger', message: 'Invalid URL' }
+    flash_danger('Invalid URL')
+    log_event('warning', 'post_create', 'Invalid URL', params)
     redirect back
   end
 end
 
-
+# talk to Post service in order to vote on a post
 post '/post/:id/vote/:type' do
   begin
-    RestClient.post(
-                    "http://#{post_service_host}:#{post_service_port}/vote",
-                     id: params[:id],
-                     type: params[:type]
-                   )
-  rescue
-    session[:flashes] << { type: 'alert-danger', message: 'Can\'t vote, some problems with the post service' }
+    http_request('post', "#{POST_URL}/vote", id: params[:id],
+                                             type: params[:type])
+  rescue StandardError => e
+    flash_danger('Can\'t vote, some problems with the post service')
+    log_event('error', 'vote',
+              "Failed to vote. Reason: #{e.message}", params)
+  else
+    log_event('info', 'vote', 'Successful vote', params)
   end
-    redirect back
+  redirect back
 end
 
-
+# show a specific post
 get '/post/:id' do
-  @post = JSON.parse(RestClient::Request.execute(method: :get, url: "http://#{post_service_host}:#{post_service_port}/post/#{params[:id]}", timeout: 3))
-  @comments = JSON.parse(RestClient::Request.execute(method: :get, url: "http://#{comment_service_host}:#{comment_service_port}/#{params[:id]}/comments", timeout: 3))
+  begin
+    @post = http_request('get', "#{POST_URL}/post/#{params[:id]}")
+  rescue StandardError => e
+    log_event('error', 'show_post',
+              "Counldn't show the post. Reason: #{e.message}", params)
+    halt 404, 'Not found'
+  end
+
+  begin
+    @comments = http_request('get', "#{COMMENT_URL}/#{params[:id]}/comments")
+  rescue StandardError => e
+    log_event('error', 'show_post',
+              "Counldn't show the comments. Reason: #{e.message}", params)
+    flash_danger("Can't show comments, some problems with the comment service")
+  else
+    log_event('info', 'show_post',
+              'Successfully showed the post', params)
+  end
   @flashes = session[:flashes]
   session[:flashes] = nil
   haml :show
 end
 
-
+# talk to Comment service in order to comment on a post
 post '/post/:id/comment' do
   begin
-    RestClient.post(
-                     "http://#{comment_service_host}:#{comment_service_port}/add_comment",
-                     post_id: params[:id],
-                     name: params[:name],
-                     email: params['email'],
-                     created_at: Time.now.to_i,
-                     body: params['body']
-                   )
-  rescue
-    session[:flashes] << { type: 'alert-danger', message: 'Can\'t save your comment, some problems with the comment service' }
+    http_request('post', "#{COMMENT_URL}/add_comment",
+                 post_id: params[:id],
+                 name: params[:name],
+                 email: params[:email],
+                 created_at: Time.now.to_i,
+                 body: params[:body])
+  rescue StandardError => e
+    log_event('error', 'create_comment',
+              "Counldn't create a comment. Reason: #{e.message}", params)
+    flash_danger("Can\'t save the comment,
+                 some problems with the comment service")
   else
-    session[:flashes] << { type: 'alert-success', message: 'Comment successuly published' }
+    log_event('info', 'create_comment',
+              'Successfully created a new post', params)
+
+    flash_success('Comment successuly published')
   end
-    redirect back
+  redirect back
 end
 
-
+# health check endpoint
 get '/healthcheck' do
-  healthcheck(post_service_host, post_service_port, comment_service_host, comment_service_port)
+  http_healthcheck_handler(POST_URL, COMMENT_URL, VERSION)
+end
+
+get '/*' do
+  halt 404, 'Page not found'
 end
